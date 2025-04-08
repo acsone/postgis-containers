@@ -1,0 +1,45 @@
+name: Build and Push Container Images
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  schedule:
+    - cron: "0 4 * * *"
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - PG_MAJOR: "14"
+            POSTGIS: "3.3"
+          - PG_MAJOR: "17"
+            POSTGIS: "3.5"
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          build-args: |
+            PG_MAJOR=${{ matrix.PG_MAJOR }}
+            POSTGIS=${{ matrix.POSTGIS }}
+          tags: |
+            ghcr.io/acsone/postgis-containers/postgis:${{ matrix.PG_MAJOR }}-${{ matrix.POSTGIS }}
+          labels: |
+            org.opencontainers.image.source=${{ github.event.repository.html_url }}
+          push: true
